@@ -3,10 +3,10 @@ A repository to hold scripts to compare outputs of L1PF emulator with simulated 
 
 
 Steps for comparison
-- 1 - raw inputs
-- 2 - converted inputs
-- 3 - regionized inputs
-- 4 - hls outputs (sorted puppis)
+1. raw inputs
+2. converted inputs
+3. regionized inputs
+4. hls outputs (sorted puppis)
 
 
 # Emulator
