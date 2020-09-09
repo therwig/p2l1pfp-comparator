@@ -14,7 +14,7 @@ Steps for comparison
 ## Step 1 - raw inputs
 Inputs are read in 96 links, across 3 link groups of 32.
 Links are (9 tk, 10 calo, 10 emcalo, 2 mu)
-# of inputs depends on #clocks per BX (8 for 320mhz inputs)
+\# of inputs depends on #clocks per BX (8 for 320mhz inputs)
 event inputs then last TMUX factor (18) * clk/bx = 144
 (Column ordering may be reversed due to FW routing.)
 
