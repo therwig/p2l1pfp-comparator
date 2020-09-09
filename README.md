@@ -27,7 +27,7 @@ plus a 32b zero word.
 ## Step 3 - Regionized inputs
 Each event is spread across 18 rows (1 per TM region)
 and (22+15+13+2) columns (#s are per-obj maximums).
-Order is: tk, em, calo, mu (defined by `link_min`, `link_max`)
+Order is: tk, em, calo, mu (defined by `link_min`, `link_max`).
 All objects are the 64b word representations.
 
 ## Step 4 - HLS outputs
