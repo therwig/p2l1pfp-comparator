@@ -39,6 +39,7 @@ and columns are the 72 hls output data-words.
 
 ## Step 1 - Raw inputs
 Generated directly from the emulator step 1 inputs, so not read here.
+
 FWIW: Columns arranged into `sim_input_fiber_[0 to 95].dat`.
 
 ## Step 2 - Converted inputs
