@@ -2,7 +2,7 @@
 from glob import glob
 import numpy as np
 
-def ReadTextFile(fname, asInts=False, has0x=True):
+def ReadTextFile(logging, fname, asInts=False, has0x=True):
     nrows=0
     ncols=0
     lines=[]
@@ -22,10 +22,11 @@ def ReadTextFile(fname, asInts=False, has0x=True):
             lines.append(words)
             nrows += 1
     #return (lines, nrows, ncols)
-    print('Finished reading file {} with {} columns and {} rows'.format(fname,ncols,nrows))
+    # print('Finished reading file {} with {} columns and {} rows'.format(fname,ncols,nrows))
+    logging.debug('Finished reading file {} with {} columns and {} rows'.format(fname,ncols,nrows))
     return np.array(lines)
 
-def ReadAcrossFiles(file_wildcard, asInts=False, has0x=False):
+def ReadAcrossFiles(logging, file_wildcard, asInts=False, has0x=False):
     '''
     Here data 'columns' (links or similar) are spread across files
     Organize into same format as 'ReadTextFile'
@@ -58,10 +59,10 @@ def ReadAcrossFiles(file_wildcard, asInts=False, has0x=False):
         for icol in range(ncols):
             row.append( cols[icol][irow] )
         rows.append( row )
-    print('Finished reading files {} with {} columns and {} rows'.format(file_wildcard,ncols,nrows))
+    logging.debug('Finished reading files {} with {} columns and {} rows'.format(file_wildcard,ncols,nrows))
     return np.array(rows)
 
-def ReadConversionTB(path):
+def ReadConversionTB(logging, path):
     ins=[]
     with open(path+"/word_test_input.txt",'r') as f:
         for l in f:
@@ -78,11 +79,11 @@ def ReadConversionTB(path):
             outs.append(word)
 
     if len(ins) != len(outs):
-        print ('mismatch in number of tracks pre- and post-conversion')
+        logging.error('mismatch in number of tracks pre- and post-conversion')
         return {}
     else:
         d = {a:b for (a,b) in zip(ins,outs)}
-        print('Successully read {} track conversion pairs from {}. dict size {}'.format(len(ins),path,len(d)))
+        logging.debug('Successully read {} track conversion pairs from {}. dict size {}'.format(len(ins),path,len(d)))
         return d
 
 
