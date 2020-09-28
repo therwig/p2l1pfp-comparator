@@ -1,5 +1,6 @@
 #import numpy as np
 from glob import glob
+import numpy as np
 
 def ReadTextFile(fname, asInts=False, has0x=True):
     nrows=0
@@ -22,7 +23,7 @@ def ReadTextFile(fname, asInts=False, has0x=True):
             nrows += 1
     #return (lines, nrows, ncols)
     print('Finished reading file {} with {} columns and {} rows'.format(fname,ncols,nrows))
-    return lines
+    return np.array(lines)
 
 def ReadAcrossFiles(file_wildcard, asInts=False, has0x=False):
     '''
@@ -58,4 +59,30 @@ def ReadAcrossFiles(file_wildcard, asInts=False, has0x=False):
             row.append( cols[icol][irow] )
         rows.append( row )
     print('Finished reading files {} with {} columns and {} rows'.format(file_wildcard,ncols,nrows))
-    return rows
+    return np.array(rows)
+
+def ReadConversionTB(path):
+    ins=[]
+    with open(path+"/word_test_input.txt",'r') as f:
+        for l in f:
+            word = l.rstrip().upper()
+            # remove 0x if necessary
+            if len(word) == 24+2: word = word[2:]
+            ins.append(word)
+    outs=[]
+    with open(path+"/word_test_output.txt",'r') as f:
+        for l in f:
+            word = l.rstrip().upper()
+            # remove 0x if necessary
+            if len(word) == 16+2: word = word[2:]
+            outs.append(word)
+
+    if len(ins) != len(outs):
+        print ('mismatch in number of tracks pre- and post-conversion')
+        return {}
+    else:
+        d = {a:b for (a,b) in zip(ins,outs)}
+        print('Successully read {} track conversion pairs from {}. dict size {}'.format(len(ins),path,len(d)))
+        return d
+
+
