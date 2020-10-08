@@ -2,6 +2,7 @@ from math import ceil
 import numpy as np
 
 def isZero(hexWordString): return (int(hexWordString,16)==0)
+def isZeroOrVtx(hexWordString): return (int(hexWordString,16)==0) or (hexWordString=='0000000000030000')
 
 def getOverlaps(a, b):
     """

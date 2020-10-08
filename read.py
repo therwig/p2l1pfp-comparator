@@ -26,7 +26,7 @@ def ReadTextFile(logging, fname, asInts=False, has0x=True):
     logging.debug('Finished reading file {} with {} columns and {} rows'.format(fname,ncols,nrows))
     return np.array(lines)
 
-def ReadAcrossFiles(logging, file_wildcard, asInts=False, has0x=False):
+def ReadAcrossFiles(logging, file_wildcard, asInts=False, has0x=False, hasValid=False):
     '''
     Here data 'columns' (links or similar) are spread across files
     Organize into same format as 'ReadTextFile'
@@ -38,14 +38,15 @@ def ReadAcrossFiles(logging, file_wildcard, asInts=False, has0x=False):
     nrows=0
     ncols = len(glob(file_wildcard))
     cols=[]
+    nstrip=2*(has0x)+1*(hasValid)
     for i in range(ncols):
         # enforce this naming convention, to e.g. avoid missing links
         fname = file_wildcard.replace('*',str(i))
         col=[]
         f=open(fname,'r')
         for _l in f:
-            l=_l.rstrip()
-            col.append(int(l,16) if asInts else l[2:].upper())
+            l=_l.rstrip()[nstrip:]
+            col.append(int(l,16) if asInts else l.upper())
             if has0x: print('not implemented')
         f.close()
         if nrows==0: nrows=len(col)
@@ -59,7 +60,9 @@ def ReadAcrossFiles(logging, file_wildcard, asInts=False, has0x=False):
         for icol in range(ncols):
             row.append( cols[icol][irow] )
         rows.append( row )
-    logging.debug('Finished reading files {} with {} columns and {} rows'.format(file_wildcard,ncols,nrows))
+    log='Finished reading files {} with {} columns and {} rows.'.format(file_wildcard,ncols,nrows)
+    log += ' Word size: {} bits, {} hex chars'.format(4*len(rows[0][0]),len(rows[0][0]))
+    logging.debug(log) #'Finished reading files {} with {} columns and {} rows'.format(file_wildcard,ncols,nrows))
     return np.array(rows)
 
 def ReadConversionTB(logging, path):

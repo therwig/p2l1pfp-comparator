@@ -1,13 +1,24 @@
 #!/usr/bin/env python
 import logging
+import optparse
 from parameters import *
 from read import ReadTextFile, ReadAcrossFiles, ReadConversionTB
-from utils import isZero, getOverlaps, Decode96b
+from utils import isZero, isZeroOrVtx, getOverlaps, Decode96b
 import numpy as np
 
-def run():
+def linkType(ilink):
+    i=ilink%32
+    if i >= LINK_BOUNDARIES[0] and i<LINK_BOUNDARIES[1]: return 'tk'
+    if i >= LINK_BOUNDARIES[1] and i<LINK_BOUNDARIES[2]: return 'em'
+    if i >= LINK_BOUNDARIES[2] and i<LINK_BOUNDARIES[3]: return 'ca'
+    if i >= LINK_BOUNDARIES[3] and i<LINK_BOUNDARIES[4]: return 'mu'
+    return "{}?".format(ilink)
+    return "link {} (={}%32): linkType error".format(i,ilink)
+
+def run(opts, args):
     logging.basicConfig(#filename='compare.log', filemode='w',
-                        format='%(levelname)s: %(message)s', level=logging.INFO)
+                        format='%(levelname)s: %(message)s', 
+                        level=logging.DEBUG if opts.verbose else logging.INFO)
     logging.info('='*72)
 
     ##
@@ -60,30 +71,53 @@ def run():
     ## Read simulation information
     ##
     
+    #
+    # Sim inputs (before conversion)
     simulator_dir = "example_data/simulation"
+    logging.info('Reading simulation inputs from folder: {}'.format(simulator_dir))
+    sim_inputs = ReadAcrossFiles(logging, simulator_dir+'/sim_input_fiber_*.dat',hasValid=True)
+    # keep track of the input 'locations' for easier lookup when debugging
+    sim_input_lookup = {}
+    for clk, words in enumerate(sim_inputs):
+        for ilink, word in enumerate(words):
+            if isZero(word): continue
+            if not word in sim_input_lookup:
+                sim_input_lookup[word] = set()
+            sim_input_lookup[word].add( (clk,ilink) )
+    # print(sim_inputs[:,95-9])
+    # print(sim_inputs[:,9])
+    #
+    # Regionized inputs
     sim_region = ReadAcrossFiles(logging, simulator_dir+'/sim_HLS_input_object_*.dat')
     max_events = int(len(sim_region)/NREGIONS)
-    logging.info('Reading simulation inputs from folder: {}'.format(simulator_dir))
     logging.info('  read simulation regionized inputs with at most {} events'.format(max_events))
+    sim_region_overflow = sim_region[NREGIONS*nEvents:]
     sim_region = (sim_region[:NREGIONS*nEvents]).reshape(nEvents,NREGIONS,-1)
-    
+
+
+    #
+    # Layer-1 outputs
     sim_layer1 = ReadAcrossFiles(logging, simulator_dir+'/sim_output_fiber_*.dat')
     max_events = int(len(sim_layer1)/NREGIONS)
     logging.info('  read simulation layer-1 outputs with at most {} events'.format(max_events))
+    sim_layer1_overflow = sim_layer1[NREGIONS*nEvents:]
     sim_layer1 = (sim_layer1[:NREGIONS*nEvents]).reshape(nEvents,NREGIONS,-1)
-    
-    
+
     
     ########################################################################
     # Now that all information is read in, can begin making comparisons
-    ########################################################################    
+    ########################################################################
     
     ##
     ## Verify track conversion
     ##
     logging.info('='*72)
-    logging.info('Commencing conversion checks...')
+    logging.info('[Conversion] Commencing conversion checks...')
     tk_conv_dict = ReadConversionTB(logging, "example_data/conversion")
+    tk_deconv_dict = {} # potentially 1-to-n
+    for k,v in tk_conv_dict.items():
+        if v in tk_deconv_dict: tk_deconv_dict[v].add(k)
+        else: tk_deconv_dict[v]=set(k)
     
     em_inputs_evts=[]
     em_inputs_cvt_evts=[]
@@ -114,20 +148,50 @@ def run():
             for itk, tk in enumerate(tks):
                 if isZero(tk): continue
                 if not tk in tk_conv_dict:
-                    logging.warning('Not in dict!!', tk, tk_conv_dict[tk], tksConv[itk])
+                    logging.warning('[Conversion] Not in dict!!', tk, tk_conv_dict[tk], tksConv[itk])
                     n_mismatch += 1
     if n_mismatch: 
-        logging.warning('Found {} mis-matches in track conversion step!'.format(n_mismatch))
+        logging.warning('[Conversion] Found {} mis-matches in track conversion step!'.format(n_mismatch))
     else:
-        logging.info('Conversion checks passed without any mismatches')
+        logging.info('[Conversion] Conversion checks passed without any mismatches')
 
-    # print( em_inputs_evts.shape ) #evt, clk, link
-    # print( em_inputs_cvt_evts.shape ) #evt, clk, link
-    # print( em_inputs_t[0,:,:].shape )
-    # print( em_inputs_t[0,:,0][:15] )
-    # print( Decode96b(em_inputs_t[0,:,0])[:10] )
-    
-        
+    ##
+    ## Check overflow objects from sim
+    ##
+    logging.info('[Regionizer Overflow] Commencing regionizer overflow checks...')
+
+    # nEvents consistency check
+    non_zero_words=[]
+    for clk in range(len(sim_region_overflow)):
+        for ilink, word in enumerate(sim_region_overflow[clk]):
+            if not isZero(word):
+                non_zero_words.append( (word, clk, ilink) )
+                warn = 'Unexpected non-0 on clock {} and link {} ({}): {}'.format(clk+NREGIONS*nEvents,ilink, linkType(ilink), word)
+                # Match the missing regionized objects with their input objects for easier debugging
+                word_before_cvt = word # get word before conversion
+                if linkType(ilink)=='tk': word_before_cvt = tk_deconv_dict[word] if (word in tk_deconv_dict) else None
+                # check if we can find where it appears on the input links
+                if word_before_cvt and (word_before_cvt in sim_input_lookup):
+                    matches = sim_input_lookup[word_before_cvt]
+                    warn += "  --> matches sim input word {}".format(word_before_cvt)
+                    warn += " appearing on (link,clk) = " + ", ".join(["{}".format(m) for m in matches])
+                else: warn += '  --> no sim inputs appear to match'
+                logging.warning(warn)
+    logging.info('[Regionizer Overflow] Found {} words in regionized sim inputs after clock {}'.format(len(non_zero_words),NREGIONS*nEvents))
+
+
+    logging.info('[HLS output overflow] Commencing output overflow checks...')
+    # nEvents consistency check
+    non_zero_words=[]
+    for clk in range(len(sim_layer1_overflow)):
+        for ilink, word in enumerate(sim_layer1_overflow[clk]):
+            if not isZeroOrVtx(word):
+                non_zero_words.append( (word, clk, ilink) )
+                warn = 'Unexpected non-0 output on clock {} and link {}: {}'.format(clk+NREGIONS*nEvents,ilink, word)
+                logging.warning(warn)
+    logging.info('[HLS output overflow] Found {} words in regionized sim inputs after clock {}'.format(len(non_zero_words),NREGIONS*nEvents))
+
+
     ##
     ## Compare regionized objects
     ##
@@ -207,7 +271,7 @@ def run():
         if nevt>=6 and (nzeros!=len(regs)): print( regs )
 
 
-def main():
+def main(opts, args):
     # logger = logging.getLogger(__name__)
 
     # c_handler = logging.StreamHandler()
@@ -227,7 +291,11 @@ def main():
     # # logger.warning('This is a warning')
     # # logger.error('This is an error')
 
-    run()
+    run(opts, args)
 
 if __name__ == '__main__':
-    main()
+    parser = optparse.OptionParser()
+    parser.add_option('-v',"--verbose", action='store_true', help="print debug messages")
+    (opts, args) = parser.parse_args()
+
+    main(opts, args)
