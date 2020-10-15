@@ -2,9 +2,11 @@
 import logging
 import optparse
 from parameters import *
+from write import *
 from read import ReadTextFile, ReadAcrossFiles, ReadConversionTB
-from utils import isZero, isZeroOrVtx, getOverlaps, Decode96b
+from utils import GetPassFail, isZero, isZeroOrVtx, getOverlaps, Decode96b, InType
 import numpy as np
+
 
 def linkType(ilink):
     i=ilink%32
@@ -14,6 +16,8 @@ def linkType(ilink):
     if i >= LINK_BOUNDARIES[3] and i<LINK_BOUNDARIES[4]: return 'mu'
     return "{}?".format(ilink)
     return "link {} (={}%32): linkType error".format(i,ilink)
+
+def linkTypeHLSIN(x): return "TODO"
 
 def run(opts, args):
     logging.basicConfig(#filename='compare.log', filemode='w',
@@ -25,6 +29,7 @@ def run(opts, args):
     ## Read emulator information
     ##    
     emulator_dir  = "example_data/emulator"
+    logging.info('Reading emulator inputs from folder: {}'.format(emulator_dir))
     emulator_lines_in_raw = ReadTextFile(logging, emulator_dir+'/inputs.txt')
     emulator_lines_in_cvt = ReadTextFile(logging, emulator_dir+'/inputs_converted.txt')
     emulator_lines_region = ReadTextFile(logging, emulator_dir+'/output.txt')
@@ -38,7 +43,6 @@ def run(opts, args):
     #   nlines = NCLK_PER_BX*((NTEST*TMUX_OUT)+(TMUX_IN-TMUX_OUT))
     nevents = int((len(em_inputs)/NCLK_PER_BX - (TMUX_IN-TMUX_OUT))/TMUX_OUT)
     nEvents=nevents
-    logging.info('Reading emulator inputs from folder: {}'.format(emulator_dir))
     logging.info('  read inputs with {} events'.format(nevents))
 
     # Read converted inputs, expect same number of lines
@@ -93,7 +97,8 @@ def run(opts, args):
     logging.info('  read simulation regionized inputs with at most {} events'.format(max_events))
     sim_region_overflow = sim_region[NREGIONS*nEvents:]
     sim_region = (sim_region[:NREGIONS*nEvents]).reshape(nEvents,NREGIONS,-1)
-
+    # print(sim_region.shape)
+    # print(sim_region)
 
     #
     # Layer-1 outputs
@@ -164,21 +169,22 @@ def run(opts, args):
     non_zero_words=[]
     for clk in range(len(sim_region_overflow)):
         for ilink, word in enumerate(sim_region_overflow[clk]):
-            if not isZero(word):
+            if not isZeroOrVtx(word):
                 non_zero_words.append( (word, clk, ilink) )
-                warn = 'Unexpected non-0 on clock {} and link {} ({}): {}'.format(clk+NREGIONS*nEvents,ilink, linkType(ilink), word)
+                warn = 'Unexpected non-0 on clock {} and link {} ({}): {}'.format(clk+NREGIONS*nEvents,ilink, linkTypeHLSIN(ilink), word)
                 # Match the missing regionized objects with their input objects for easier debugging
                 word_before_cvt = word # get word before conversion
                 if linkType(ilink)=='tk': word_before_cvt = tk_deconv_dict[word] if (word in tk_deconv_dict) else None
                 # check if we can find where it appears on the input links
-                if word_before_cvt and (word_before_cvt in sim_input_lookup):
-                    matches = sim_input_lookup[word_before_cvt]
-                    warn += "  --> matches sim input word {}".format(word_before_cvt)
-                    warn += " appearing on (link,clk) = " + ", ".join(["{}".format(m) for m in matches])
-                else: warn += '  --> no sim inputs appear to match'
+                #TODO FIXME
+                # if word_before_cvt and (word_before_cvt in sim_input_lookup):
+                #     matches = sim_input_lookup[word_before_cvt]
+                #     warn += "  --> matches sim input word {}".format(word_before_cvt)
+                #     warn += " appearing on (link,clk) = " + ", ".join(["{}".format(m) for m in matches])
+                # else: warn += '  --> no sim inputs appear to match'
                 logging.warning(warn)
     logging.info('[Regionizer Overflow] Found {} words in regionized sim inputs after clock {}'.format(len(non_zero_words),NREGIONS*nEvents))
-
+    print("tst",sim_region.shape)
 
     logging.info('[HLS output overflow] Commencing output overflow checks...')
     # nEvents consistency check
@@ -210,6 +216,8 @@ def run(opts, args):
     sim_region_objs = [sim_region_t, sim_region_e, sim_region_c, sim_region_m]
     
     match = np.zeros( (nEvents,NREGIONS,4) )
+    em_only = {}
+    sim_only = {}
     # print(em_[0].shape)
     # print(em_region_t[0].shape)
     #exit(0)
@@ -218,26 +226,50 @@ def run(opts, args):
             # iterate object types
             for oi in range(4):
                 common, emOnly, simOnly = getOverlaps(em_region_objs[oi][ei,ri], sim_region_objs[oi][ei,ri])
+                match[ei, ri, oi] = (len(emOnly) + len(simOnly) == 0)
+                em_only[(ei, ri, oi)] = emOnly
+                sim_only[(ei, ri, oi)] = simOnly
+
+                # if oi==3:
+                #     print(ei,ri,common, emOnly, simOnly)
+                
                 # print(em_region_objs[oi][ei,ri], sim_region_objs[oi][ei,ri])
                 # print( common, emOnly, simOnly )
                 #exit(0)
-                match[ei, ri, oi] = (len(emOnly) + len(simOnly) == 0)
                 #print(ei, ri, oi, match[ei, ri, oi])
-                if ei==0 and ri==0 and oi==1:
-                    print(em_region_objs[oi][ei,ri], sim_region_objs[oi][ei,ri])
-                    print( common, emOnly, simOnly )
-                    exit(0)
+                # if ei==0 and ri==0 and oi==0:
+                #     print(em_region_objs[oi][ei,ri], sim_region_objs[oi][ei,ri])
+                #     print( common, emOnly, simOnly )
+                #     exit(0)
+    print( "Total matches?", GetPassFail(match) )
+    print( "Track matches?", GetPassFail(match[:,:,0]) )
+    print( "EM matches?", GetPassFail(match[:,:,1]) )
+    print( "Calo matches?", GetPassFail(match[:,:,2]) )
+    print( "Muon matches?", GetPassFail(match[:,:,3]) )
     
-    exit(0)
+    reportDir="reports/"
+    WriteRegionizerReport(em_region_objs, sim_region_objs, reportDir, sim_input_lookup)
+
+    # print("EM")
+    # print(em_region_objs[1][0,:])
+    # print("SIM")
+    # print(sim_region_objs[1][0,:])
+
+    # print(sim_region_c)
+
+    # isMatch, counts = np.unique(match, return_counts=True)
+    # print (isMatch)
+    # print (counts)
+    #exit(0)
     # print( match[0,:,0] )
     # print( match[0,:,1] )
     # print( match[0,:,2] )
     # print( match[0,:,3] )
     # exit(00)
-    print( match[:,:,0] )
-    print( match[:,:,1] )
-    print( match[:,:,2] )
-    print( match[:,:,3] )
+    # print( match[:,:,0] )
+    # print( match[:,:,1] )
+    # print( match[:,:,2] )
+    # print( match[:,:,3] )
     
     # print( em_region_t.shape )
     # print( em_region_e.shape )

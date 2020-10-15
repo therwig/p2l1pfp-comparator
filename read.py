@@ -2,7 +2,10 @@
 from glob import glob
 import numpy as np
 
-def ReadTextFile(logging, fname, asInts=False, has0x=True):
+def Remove0x(word): 
+    return word[2:] if word.startswith('0x') else word
+
+def ReadTextFile(logging, fname, asInts=False, has0x=True, hasValid=False):
     nrows=0
     ncols=0
     lines=[]
@@ -14,16 +17,17 @@ def ReadTextFile(logging, fname, asInts=False, has0x=True):
             elif ncols != len(words):
                 print('found {} words (columns) instead of {}'.format(len(words),ncols))
             # strip 0x
-            if asInts:
-                words = [int(w[2:],16) for w in words]
-                if has0x==False: print('not implemented')
-            else:
-                words = [w[2:].upper() for w in words]
+            chop=0 + 1*(hasValid)
+            # print(words)
+            words = [ Remove0x(w).upper() for w in words ]
+            # print(words)
+            if asInts: words = [int(w,16) for w in words]
             lines.append(words)
             nrows += 1
-    #return (lines, nrows, ncols)
-    # print('Finished reading file {} with {} columns and {} rows'.format(fname,ncols,nrows))
-    logging.debug('Finished reading file {} with {} columns and {} rows'.format(fname,ncols,nrows))
+    log = 'Finished reading file {} with {} columns and {} rows'.format(fname,ncols,nrows)
+    # get the second word since first is a counter
+    log += ' Word size: {} bits, {} hex chars'.format(4*len(lines[0][1]),len(lines[0][1]))
+    logging.debug(log) #'Finished reading files {} with {} columns and {} rows'.format(file_wildcard,ncols,nrows))
     return np.array(lines)
 
 def ReadAcrossFiles(logging, file_wildcard, asInts=False, has0x=False, hasValid=False):
