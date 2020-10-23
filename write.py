@@ -76,8 +76,6 @@ def WriteRegionizerReport(em_objs, sim_objs, reportDir, sim_input_lookup, tk_dec
       sim_only[(ei, oi)] = simOnly
       common[(ei, oi)] = comm
 
-  # print( "match[0,6,0] = ",match[ 0, 6, 0] )
-
   # Check number of matching objs per event
   for ei in range(nEvents):
     l="Event {} matching tk/em/ca/mu regions (of {}): "+\
@@ -108,10 +106,6 @@ def WriteRegionizerReport(em_objs, sim_objs, reportDir, sim_input_lookup, tk_dec
         for obj in em_only[(ei, ri, oi)]:
           l="      {} :: pt/eta/phi = {:4d} {:4d} {:4d}"
           ll = lookup_input(obj, oi, sim_input_lookup, tk_deconv_dict)
-          # if obj in sim_input_lookup: 
-          #   ll=" :: sim (clk,link)={}\n".format(sim_input_lookup[obj])
-          # else: 
-          #   ll="\n"
           f_o[oi].write(l.format(obj,*GetPtEtaPhi(obj, oi))+ll)
 
         if len(sim_only[(ei, ri, oi)]): f_o[oi].write("    Simulation-only:\n")

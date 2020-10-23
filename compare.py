@@ -245,26 +245,10 @@ def run(opts, args):
             # iterate object types
             for oi in range(4):
                 common, emOnly, simOnly = getOverlaps(em_region_objs[oi][ei,ri], sim_region_objs[oi][ei,ri])
-                # if '7EFEDBC8000B0009' in sim_region_objs[oi][ei,ri]:
-                #     print (" got it", oi,ei,ri)
-                #     print (em_region_objs[oi][ei,ri])
-                #     print (sim_region_objs[oi][ei,ri])
-                #     print(common, emOnly, simOnly)
                 match[ei, ri, oi] = (len(emOnly) + len(simOnly) == 0)
                 em_only[(ei, ri, oi)] = emOnly
                 sim_only[(ei, ri, oi)] = simOnly
 
-                # if oi==3:
-                #     print(ei,ri,common, emOnly, simOnly)
-                
-                # print(em_region_objs[oi][ei,ri], sim_region_objs[oi][ei,ri])
-                # print( common, emOnly, simOnly )
-                #exit(0)
-                #print(ei, ri, oi, match[ei, ri, oi])
-                # if ei==0 and ri==0 and oi==0:
-                #     print(em_region_objs[oi][ei,ri], sim_region_objs[oi][ei,ri])
-                #     print( common, emOnly, simOnly )
-                #     exit(0)
     print( "Total matches?", GetPassFail(match) )
     print( "Track matches?", GetPassFail(match[:,:,0]) )
     print( "EM matches?", GetPassFail(match[:,:,1]) )
