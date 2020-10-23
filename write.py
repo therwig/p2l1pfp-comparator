@@ -1,6 +1,33 @@
 from utils import *
 
-def WriteRegionizerReport(em_objs, sim_objs, reportDir, sim_input_lookup):
+def lookup_input(obj, oi, sim_input_lookup, tk_deconv_dict):
+  toPrint="\n"
+  isTrk = (oi==InType.tk) # read from converter
+  if isTrk:
+    if obj in tk_deconv_dict:
+      input_tks = tk_deconv_dict[obj] # set()
+      #print ('yeee',input_tks)
+      lookups={} #set()
+      for itk in input_tks:
+        lookups[itk]=set()
+        # 96b inputs broken into 64+32          
+        first64 = itk[:16]
+        last64 = itk[-16:]
+        if first64 in sim_input_lookup:
+          lookups[itk] = sim_input_lookup[first64]
+        if last64 in sim_input_lookup:
+          lookups[itk] = sim_input_lookup[last64]
+      if len(lookups):
+        toPrint = " :: sim (input)->(clk,link)={}\n".format(lookups)
+    else: 
+      toPrint = " :: fail to find pre-convert track\n"
+    pass
+  else:
+    if obj in sim_input_lookup: 
+      toPrint = " :: sim (clk,link)={}\n".format(sim_input_lookup[obj])
+  return toPrint
+
+def WriteRegionizerReport(em_objs, sim_objs, reportDir, sim_input_lookup, tk_deconv_dict, printCommon=True):
   # high-level report
   '''
   Writes several reports (of various granularities) for debugging
@@ -30,19 +57,26 @@ def WriteRegionizerReport(em_objs, sim_objs, reportDir, sim_input_lookup):
   for ei in range(nEvents):
     for oi in range(InType.n):
       for ri in range(nRegions):
-        comm, emOnly, simOnly = getOverlaps(em_objs[oi][ei,ri], 
+        comm, emOnly, simOnly = getOverlaps(em_objs[oi][ei,ri],
                                             sim_objs[oi][ei,ri])
         match[ei, ri, oi] = (len(emOnly) + len(simOnly) == 0)
         em_only[(ei, ri, oi)] = emOnly
         sim_only[(ei, ri, oi)] = simOnly
         common[(ei, ri, oi)] = comm
+        # if '7EFEDBC8000B0009' in sim_objs[oi][ei,ri]:
+        #   print (" got it", oi,ei,ri)
+        #   print (em_objs[oi][ei,ri])
+        #   print (sim_objs[oi][ei,ri])
+        #   print(comm, emOnly, simOnly, match[ei, ri, oi])
       # across all regions
-      comm, emOnly, simOnly = getOverlaps(em_objs[oi][ei,:], 
+      comm, emOnly, simOnly = getOverlaps(em_objs[oi][ei,:],
                                           sim_objs[oi][ei,:])
       match_evt[ei, oi] = (len(emOnly) + len(simOnly) == 0)
       em_only[(ei, oi)] = emOnly
       sim_only[(ei, oi)] = simOnly
       common[(ei, oi)] = comm
+
+  # print( "match[0,6,0] = ",match[ 0, 6, 0] )
 
   # Check number of matching objs per event
   for ei in range(nEvents):
@@ -64,26 +98,33 @@ def WriteRegionizerReport(em_objs, sim_objs, reportDir, sim_input_lookup):
       if match[ei, :, oi].sum():
           f_o[oi].write("  Found {} non-matching regions\n".format(int(match[ei, :, oi].sum())))
       for ri in range(nRegions):
-        if match[ei, ri, oi]: continue
+        if match[ei, ri, oi] and not printCommon: continue
         l="  Region {:2d} ({:2d} common, {:2d} emulator-only, {:2d} sim-only)\n"
         f_o[oi].write(l.format(ri, len(common[(ei, ri, oi)]),
                                len(em_only[(ei, ri, oi)]),
                                len(sim_only[(ei, ri, oi)])))
+
         if len(em_only[(ei, ri, oi)]): f_o[oi].write("    Emulator-only:\n")
         for obj in em_only[(ei, ri, oi)]:
-            l="      {} :: pt/eta/phi = {:4d} {:4d} {:4d}"
-            if obj in sim_input_lookup: 
-              ll=" :: sim (clk,link)={}\n".format(sim_input_lookup[obj])
-            else: 
-              ll="\n"
-            f_o[oi].write(l.format(obj,*GetPtEtaPhi(obj, oi))+ll)
+          l="      {} :: pt/eta/phi = {:4d} {:4d} {:4d}"
+          ll = lookup_input(obj, oi, sim_input_lookup, tk_deconv_dict)
+          # if obj in sim_input_lookup: 
+          #   ll=" :: sim (clk,link)={}\n".format(sim_input_lookup[obj])
+          # else: 
+          #   ll="\n"
+          f_o[oi].write(l.format(obj,*GetPtEtaPhi(obj, oi))+ll)
+
         if len(sim_only[(ei, ri, oi)]): f_o[oi].write("    Simulation-only:\n")
         for obj in sim_only[(ei, ri, oi)]:
+          l="      {} :: pt/eta/phi = {:4d} {:4d} {:4d}"
+          ll = lookup_input(obj, oi, sim_input_lookup, tk_deconv_dict)
+          f_o[oi].write(l.format(obj,*GetPtEtaPhi(obj, oi))+ll)
+
+        if printCommon:
+          if len(common[(ei, ri, oi)]): f_o[oi].write("    Common:\n")
+          for obj in common[(ei, ri, oi)]:
             l="      {} :: pt/eta/phi = {:4d} {:4d} {:4d}"
-            if obj in sim_input_lookup: 
-              ll=" :: sim (clk,link)={}\n".format(sim_input_lookup[obj])
-            else: 
-              ll="\n"
+            ll = lookup_input(obj, oi, sim_input_lookup, tk_deconv_dict)
             f_o[oi].write(l.format(obj,*GetPtEtaPhi(obj, oi))+ll)
 
   # print( "Total matches?", GetPassFail(match) )

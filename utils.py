@@ -15,6 +15,7 @@ class OutType: #TODO
 
 def isZero(hexWordString): return (int(hexWordString,16)==0)
 def isZeroOrVtx(hexWordString): return (int(hexWordString,16)==0) or (hexWordString=='0030000000000000')
+def isNotZeroOrVtx(a): return not isZeroOrVtx(a)
 
 def GetPassFail(a):
     vals, counts = np.unique(a, return_counts=True)
@@ -29,8 +30,8 @@ def getOverlaps(a, b):
     """
     # print(type(a))
     # print(b)
-    a = set(a.flatten())
-    b = set(b.flatten())
+    a = set( filter(isNotZeroOrVtx, a.flatten()) )
+    b = set( filter(isNotZeroOrVtx, b.flatten()) )
     common = a.intersection(b)
     aOnly = a.difference(common)
     bOnly = b.difference(common)

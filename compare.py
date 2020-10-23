@@ -17,7 +17,13 @@ def linkType(ilink):
     return "{}?".format(ilink)
     return "link {} (={}%32): linkType error".format(i,ilink)
 
-def linkTypeHLSIN(x): return "TODO"
+def hlsInputType(i, sim=True):
+    if not sim: return "TODO"
+    if i >= SIM_HLS_INPUT_BOUNDARIES[0] and i<SIM_HLS_INPUT_BOUNDARIES[1]: return 'em'
+    if i >= SIM_HLS_INPUT_BOUNDARIES[1] and i<SIM_HLS_INPUT_BOUNDARIES[2]: return 'ca'
+    if i >= SIM_HLS_INPUT_BOUNDARIES[2] and i<SIM_HLS_INPUT_BOUNDARIES[3]: return 'tk'
+    if i >= SIM_HLS_INPUT_BOUNDARIES[3] and i<SIM_HLS_INPUT_BOUNDARIES[4]: return 'mu'
+    return "{}?".format(i)
 
 def run(opts, args):
     logging.basicConfig(#filename='compare.log', filemode='w',
@@ -70,6 +76,10 @@ def run(opts, args):
     logging.info('  read PF layer-1 outputs with {} events'.format(nevents))
     em_layer1 = (em_layer1[:NREGIONS*nEvents]).reshape(nEvents,NREGIONS,-1)
 
+    # print('inputs', em_inputs[2,13])
+    # print('outputs', em_region[0,:,23])
+    # print('outputs', em_region[0,2,23])
+    # exit(0)
     
     ##
     ## Read simulation information
@@ -97,7 +107,7 @@ def run(opts, args):
     logging.info('  read simulation regionized inputs with at most {} events'.format(max_events))
     sim_region_overflow = sim_region[NREGIONS*nEvents:]
     sim_region = (sim_region[:NREGIONS*nEvents]).reshape(nEvents,NREGIONS,-1)
-    # print(sim_region.shape)
+    print(sim_region.shape)
     # print(sim_region)
 
     #
@@ -121,9 +131,11 @@ def run(opts, args):
     tk_conv_dict = ReadConversionTB(logging, "example_data/conversion")
     tk_deconv_dict = {} # potentially 1-to-n
     for k,v in tk_conv_dict.items():
-        if v in tk_deconv_dict: tk_deconv_dict[v].add(k)
-        else: tk_deconv_dict[v]=set(k)
-    
+        if v in tk_deconv_dict: 
+            tk_deconv_dict[v].add(k)
+        else:
+            tk_deconv_dict[v]=set([k])
+
     em_inputs_evts=[]
     em_inputs_cvt_evts=[]
     for ei in range(nEvents):
@@ -171,7 +183,7 @@ def run(opts, args):
         for ilink, word in enumerate(sim_region_overflow[clk]):
             if not isZeroOrVtx(word):
                 non_zero_words.append( (word, clk, ilink) )
-                warn = 'Unexpected non-0 on clock {} and link {} ({}): {}'.format(clk+NREGIONS*nEvents,ilink, linkTypeHLSIN(ilink), word)
+                warn = 'Unexpected non-0 on clock {} and link {} ({}): {}'.format(clk+NREGIONS*nEvents,ilink, hlsInputType(ilink), word)
                 # Match the missing regionized objects with their input objects for easier debugging
                 word_before_cvt = word # get word before conversion
                 if linkType(ilink)=='tk': word_before_cvt = tk_deconv_dict[word] if (word in tk_deconv_dict) else None
@@ -184,7 +196,6 @@ def run(opts, args):
                 # else: warn += '  --> no sim inputs appear to match'
                 logging.warning(warn)
     logging.info('[Regionizer Overflow] Found {} words in regionized sim inputs after clock {}'.format(len(non_zero_words),NREGIONS*nEvents))
-    print("tst",sim_region.shape)
 
     logging.info('[HLS output overflow] Commencing output overflow checks...')
     # nEvents consistency check
@@ -214,7 +225,15 @@ def run(opts, args):
     sim_region_t = sim_region[:,:,NEMCALO+NCALO:NEMCALO+NCALO+NTRACK]
     sim_region_m = sim_region[:,:,NEMCALO+NCALO+NTRACK:NEMCALO+NCALO+NTRACK+NMU]
     sim_region_objs = [sim_region_t, sim_region_e, sim_region_c, sim_region_m]
-    
+
+    #print(sim_region_t)
+    for ei,_ in enumerate(sim_region_t):
+        for ri,_ in enumerate(sim_region_t[ei]):
+            for li,_ in enumerate(sim_region_t[ei][ri]):
+                if sim_region_t[ei][ri][li]=='7EFEDBC8000B0009':
+                    pass
+                    #print( ei,ri,li, sim_region_t[ei][ri][li])
+
     match = np.zeros( (nEvents,NREGIONS,4) )
     em_only = {}
     sim_only = {}
@@ -226,6 +245,11 @@ def run(opts, args):
             # iterate object types
             for oi in range(4):
                 common, emOnly, simOnly = getOverlaps(em_region_objs[oi][ei,ri], sim_region_objs[oi][ei,ri])
+                # if '7EFEDBC8000B0009' in sim_region_objs[oi][ei,ri]:
+                #     print (" got it", oi,ei,ri)
+                #     print (em_region_objs[oi][ei,ri])
+                #     print (sim_region_objs[oi][ei,ri])
+                #     print(common, emOnly, simOnly)
                 match[ei, ri, oi] = (len(emOnly) + len(simOnly) == 0)
                 em_only[(ei, ri, oi)] = emOnly
                 sim_only[(ei, ri, oi)] = simOnly
@@ -248,7 +272,7 @@ def run(opts, args):
     print( "Muon matches?", GetPassFail(match[:,:,3]) )
     
     reportDir="reports/"
-    WriteRegionizerReport(em_region_objs, sim_region_objs, reportDir, sim_input_lookup)
+    WriteRegionizerReport(em_region_objs, sim_region_objs, reportDir, sim_input_lookup, tk_deconv_dict)
 
     # print("EM")
     # print(em_region_objs[1][0,:])
