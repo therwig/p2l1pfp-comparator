@@ -79,6 +79,7 @@ def run(opts, args):
     # print('inputs', em_inputs[2,13])
     # print('outputs', em_region[0,:,23])
     # print('outputs', em_region[0,2,23])
+    # print('outputs', em_region[0,11,23])
     # exit(0)
     
     ##
@@ -115,6 +116,7 @@ def run(opts, args):
     sim_layer1 = ReadAcrossFiles(logging, simulator_dir+'/sim_output_fiber_*.dat')
     max_events = int(len(sim_layer1)/NREGIONS)
     logging.info('  read simulation layer-1 outputs with at most {} events'.format(max_events))
+    print(sim_layer1.shape)
     sim_layer1_overflow = sim_layer1[NREGIONS*nEvents:]
     sim_layer1 = (sim_layer1[:NREGIONS*nEvents]).reshape(nEvents,NREGIONS,-1)
 
@@ -239,6 +241,10 @@ def run(opts, args):
     sim_only = {}
     # print(em_[0].shape)
     # print(em_region_t[0].shape)
+
+    # print(em_region_objs[0][0,0])
+    # print(sim_region_objs[0][0,0])
+
     #exit(0)
     for ei in range(nEvents):
         for ri in range(NREGIONS):
@@ -257,6 +263,13 @@ def run(opts, args):
     
     reportDir="reports/"
     WriteRegionizerReport(em_region_objs, sim_region_objs, reportDir, sim_input_lookup, tk_deconv_dict)
+
+    WriteCounts(reportDir+"counts_em.txt", em_region_objs)
+    WriteCounts(reportDir+"counts_sim.txt", sim_region_objs)
+
+    WriteForTTree(reportDir+"tree_sim.txt", sim_region_objs)
+    WriteForTTree(reportDir+"tree_em.txt", em_region_objs)
+
 
     # print("EM")
     # print(em_region_objs[1][0,:])
