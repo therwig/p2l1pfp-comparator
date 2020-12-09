@@ -112,13 +112,22 @@ def run(opts, args):
     # print(sim_region)
 
     #
-    # Layer-1 outputs
-    sim_layer1 = ReadAcrossFiles(logging, simulator_dir+'/sim_output_fiber_*.dat')
-    max_events = int(len(sim_layer1)/NREGIONS)
-    logging.info('  read simulation layer-1 outputs with at most {} events'.format(max_events))
-    print(sim_layer1.shape)
-    sim_layer1_overflow = sim_layer1[NREGIONS*nEvents:]
-    sim_layer1 = (sim_layer1[:NREGIONS*nEvents]).reshape(nEvents,NREGIONS,-1)
+    # Layer-1 outputs (DIRECTLY FROM PF)
+    # sim_layer1 = ReadAcrossFiles(logging, simulator_dir+'/sim_output_fiber_*.dat')
+    # max_events = int(len(sim_layer1)/NREGIONS)
+    # logging.info('  read simulation layer-1 outputs with at most {} events'.format(max_events))
+    # print(sim_layer1.shape)
+    # sim_layer1_overflow = sim_layer1[NREGIONS*nEvents:]
+    # sim_layer1 = (sim_layer1[:NREGIONS*nEvents]).reshape(nEvents,NREGIONS,-1)
+
+    # INCLUDING SORT -- 6 output links
+    if False:
+        sim_layer1 = ReadAcrossFiles(logging, simulator_dir+'/sim_output_fiber_*.dat')
+        max_events = int(len(sim_layer1)/NREGIONS)
+        logging.info('  read simulation layer-1 outputs with at most {} events'.format(max_events))
+        print(sim_layer1.shape)
+        sim_layer1_overflow = sim_layer1[NREGIONS*nEvents:]
+        sim_layer1 = (sim_layer1[:NREGIONS*nEvents]).reshape(nEvents,NREGIONS,-1)
 
     
     ########################################################################
@@ -201,14 +210,15 @@ def run(opts, args):
 
     logging.info('[HLS output overflow] Commencing output overflow checks...')
     # nEvents consistency check
-    non_zero_words=[]
-    for clk in range(len(sim_layer1_overflow)):
-        for ilink, word in enumerate(sim_layer1_overflow[clk]):
-            if not isZeroOrVtx(word):
-                non_zero_words.append( (word, clk, ilink) )
-                warn = 'Unexpected non-0 output on clock {} and link {}: {}'.format(clk+NREGIONS*nEvents,ilink, word)
-                logging.warning(warn)
-    logging.info('[HLS output overflow] Found {} words in regionized sim inputs after clock {}'.format(len(non_zero_words),NREGIONS*nEvents))
+    if False:
+        non_zero_words=[]
+        for clk in range(len(sim_layer1_overflow)):
+            for ilink, word in enumerate(sim_layer1_overflow[clk]):
+                if not isZeroOrVtx(word):
+                    non_zero_words.append( (word, clk, ilink) )
+                    warn = 'Unexpected non-0 output on clock {} and link {}: {}'.format(clk+NREGIONS*nEvents,ilink, word)
+                    logging.warning(warn)
+        logging.info('[HLS output overflow] Found {} words in regionized sim inputs after clock {}'.format(len(non_zero_words),NREGIONS*nEvents))
 
 
     ##
