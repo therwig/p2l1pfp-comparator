@@ -14,7 +14,7 @@ class OutType: #TODO
     n=3 # number of types
 
 def isZero(hexWordString): return (int(hexWordString,16)==0)
-def isZeroOrVtx(hexWordString): return (int(hexWordString,16)==0) or (hexWordString=='0030000000000000')
+def isZeroOrVtx(hexWordString): return (int(hexWordString,16)==0) or (hexWordString=='0030000000000000') or (hexWordString=='4000000000000000')
 def isNotZeroOrVtx(a): return not isZeroOrVtx(a)
 
 def GetPassFail(a):

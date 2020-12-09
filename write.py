@@ -27,7 +27,7 @@ def lookup_input(obj, oi, sim_input_lookup, tk_deconv_dict):
       toPrint = " :: sim (clk,link)={}\n".format(sim_input_lookup[obj])
   return toPrint
 
-def WriteRegionizerReport(em_objs, sim_objs, reportDir, sim_input_lookup, tk_deconv_dict, printCommon=True):
+def WriteRegionizerReport(em_objs, sim_objs, reportDir, sim_input_lookup, tk_deconv_dict, printCommon=False):
   # high-level report
   '''
   Writes several reports (of various granularities) for debugging
@@ -63,6 +63,11 @@ def WriteRegionizerReport(em_objs, sim_objs, reportDir, sim_input_lookup, tk_dec
         em_only[(ei, ri, oi)] = emOnly
         sim_only[(ei, ri, oi)] = simOnly
         common[(ei, ri, oi)] = comm
+        # if ei+oi+ri==0:
+        #   print(em_objs[oi][ei,ri])
+        #   print(sim_objs[oi][ei,ri])
+        #   print(comm, emOnly, simOnly, match[ei, ri, oi])
+          
         # if '7EFEDBC8000B0009' in sim_objs[oi][ei,ri]:
         #   print (" got it", oi,ei,ri)
         #   print (em_objs[oi][ei,ri])
@@ -88,17 +93,16 @@ def WriteRegionizerReport(em_objs, sim_objs, reportDir, sim_input_lookup, tk_dec
 
     for oi in range(InType.n):
       #f_o[oi].write("Event {}: {} regions match \n".format(ei, int(match[ei, :, oi].sum())))
-      l="Event {:2d} ({:3d} common, {:3d} emulator-only, {:3d} sim-only)\n"
-      f_o[oi].write(l.format(ei, len(common[(ei, oi)]),
-                               len(em_only[(ei, oi)]),
-                               len(sim_only[(ei, oi)])))
+      l="Event {:2d} \n" #({:3d} common, {:3d} emulator-only, {:3d} sim-only)\n"
+      f_o[oi].write(l.format(ei))
+      #, len(common[(ei, oi)]),len(em_only[(ei, oi)]),len(sim_only[(ei, oi)])))
 
       if match[ei, :, oi].sum():
           f_o[oi].write("  Found {} non-matching regions\n".format(int(match[ei, :, oi].sum())))
       for ri in range(nRegions):
         if match[ei, ri, oi] and not printCommon: continue
-        l="  Region {:2d} ({:2d} common, {:2d} emulator-only, {:2d} sim-only)\n"
-        f_o[oi].write(l.format(ri, len(common[(ei, ri, oi)]),
+        l="  Evt {:2d} Region {:2d} ({:2d} common, {:2d} emulator-only, {:2d} sim-only)\n"
+        f_o[oi].write(l.format(ei, ri, len(common[(ei, ri, oi)]),
                                len(em_only[(ei, ri, oi)]),
                                len(sim_only[(ei, ri, oi)])))
 
@@ -132,3 +136,66 @@ def WriteRegionizerReport(em_objs, sim_objs, reportDir, sim_input_lookup, tk_dec
   f_em.close()
   f_ca.close()
   f_mu.close()
+
+
+
+def WriteCounts(fname, objs):
+  '''
+  Print counts for a set of objects
+  '''
+  
+  f = open(fname,'w')
+
+  # Check which objects match for all events
+  nEvents, nRegions, _ = objs[0].shape
+  maxs = [objs[i].shape[-1] for i in range(InType.n)]
+  counts = np.zeros( (InType.n,nEvents,nRegions) )
+
+  # for oi in range(InType.n):
+  #   for ei in range(nEvents):
+  #     for ri in range(nRegions):
+  #       nonZero = sum([isNotZeroOrVtx(x) for x in objs[oi][ei,ri]])
+  #       counts[oi,ei,ri] = nonZero
+
+  for ei in range(nEvents):
+    f.write("Event {}\n".format(ei))
+    for ri in range(nRegions):
+
+      # count objects
+      overflow=False
+      for oi in range(InType.n):
+        nonZero = sum([isNotZeroOrVtx(x) for x in objs[oi][ei,ri]])
+        counts[oi,ei,ri] = nonZero
+        if int(nonZero) >= maxs[oi]: 
+          overflow=True
+
+      # write to file
+      l=" Region {:2d} with #tk/em/ca/mu counts " +\
+            "{:0>2.0f}/{:0>2.0f} {:0>2.0f}/{:0>2.0f} " +\
+            "{:0>2.0f}/{:0>2.0f} {:0>2.0f}/{:0>2.0f}"
+      l += ("  <-- potential overflow\n" if overflow else "\n")
+      f.write(l.format(ri,
+                       counts[0,ei,ri],maxs[0],
+                       counts[1,ei,ri],maxs[1],
+                       counts[2,ei,ri],maxs[2],
+                       counts[3,ei,ri],maxs[3]))
+  f.close()
+
+
+def WriteForTTree(fname, objs):  
+  f = open(fname,'w')
+
+  # Check which objects match for all events
+  nEvents, nRegions, _ = objs[0].shape
+
+  f.write("oi:ei:ri:pt:eta:phi\n")
+
+  for oi in range(InType.n):
+    for ei in range(nEvents):
+      for ri in range(nRegions):
+        for o in objs[oi][ei,ri]:
+          if isNotZeroOrVtx(o):
+            pt, eta, phi = GetPtEtaPhi(o, oi)
+            l="{} {} {} {} {} {}\n".format(oi,ei,ri,pt,eta,phi)
+            f.write(l)
+  f.close()
