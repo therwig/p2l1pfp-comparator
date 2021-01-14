@@ -242,7 +242,8 @@ def run(opts, args):
     for ei,_ in enumerate(sim_region_t):
         for ri,_ in enumerate(sim_region_t[ei]):
             for li,_ in enumerate(sim_region_t[ei][ri]):
-                if sim_region_t[ei][ri][li]=='7EFEDBC8000B0009':
+                #if sim_region_t[ei][ri][li]=='7EFEDBC8000B0009':
+                if sim_region_t[ei][ri][li]=='7E2EB35C000B0008':
                     pass
                     #print( ei,ri,li, sim_region_t[ei][ri][li])
 
@@ -252,6 +253,8 @@ def run(opts, args):
     # print(em_[0].shape)
     # print(em_region_t[0].shape)
 
+    # print("DECONV",tk_deconv_dict["443013EB0019007C"])
+    
     # print(em_region_objs[0][0,0])
     # print(sim_region_objs[0][0,0])
 
@@ -311,8 +314,29 @@ def run(opts, args):
     # print( sim_region_e.shape )
     # print( sim_region_c.shape )
     # print( sim_region_m.shape )
-    
-    #print( np.stack( [em_region_t,em_region_e] ).shape )
+     
+   #print( np.stack( [em_region_t,em_region_e] ).shape )
+
+
+
+    ##
+    ## Compare PF Layer-1 PF+PUPPI outputs
+    ##
+    logging.info('='*72)
+    logging.info('Commencing regionizer checks...')
+    em_layer1_ch = em_layer1[:,:,EM_LAYER1_OUT_BOUNDARIES[0]:EM_LAYER1_OUT_BOUNDARIES[1]]
+    em_layer1_ph = em_layer1[:,:,EM_LAYER1_OUT_BOUNDARIES[1]:EM_LAYER1_OUT_BOUNDARIES[2]]
+    em_layer1_ca = em_layer1[:,:,EM_LAYER1_OUT_BOUNDARIES[2]:EM_LAYER1_OUT_BOUNDARIES[3]]
+    em_layer1_mu = em_layer1[:,:,EM_LAYER1_OUT_BOUNDARIES[3]:EM_LAYER1_OUT_BOUNDARIES[4]]
+    em_layer1_objs = [em_layer1_ch, em_layer1_ph, em_layer1_ca, em_layer1_mu]
+
+
+    # sim_region_e = sim_region[:,:,:NEMCALO]
+    # sim_region_c = sim_region[:,:,NEMCALO:NEMCALO+NCALO]
+    # sim_region_t = sim_region[:,:,NEMCALO+NCALO:NEMCALO+NCALO+NTRACK]
+    # sim_region_m = sim_region[:,:,NEMCALO+NCALO+NTRACK:NEMCALO+NCALO+NTRACK+NMU]
+    # sim_region_objs = [sim_region_t, sim_region_e, sim_region_c, sim_region_m]
+
     exit(0)
     
     
